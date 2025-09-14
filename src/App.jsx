@@ -239,7 +239,7 @@ const UserHome = ({ onLogout, onNavigate }) => {
           <Typography variant="h6" gutterBottom>
             User Home
           </Typography>
-          <Grid container spacing={2} sx={{ mt: 4 }}>
+          <Grid container spacing={2} sx={{ mt: 4, flexDirection: 'column' }}>
             <Grid item xs={12}>
               <Button 
                 fullWidth 
@@ -247,15 +247,6 @@ const UserHome = ({ onLogout, onNavigate }) => {
                 onClick={() => onNavigate({ view: VIEWS.USER_QUIZ, round: 1 })}
               >
                 Round 1 Quiz
-              </Button>
-            </Grid>
-            <Grid item xs={12}>
-              <Button 
-                fullWidth 
-                variant="contained" 
-                onClick={() => onNavigate({ view: VIEWS.USER_QUIZ, round: 2 })}
-              >
-                Round 2 Quiz
               </Button>
             </Grid>
             <Grid item xs={12}>
@@ -1069,7 +1060,7 @@ const AdminDashboard = ({ onLogout, onNavigate, activeTab, setActiveTab }) => {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
+      <AppBar position="static" sx={{ borderRadius: 0}}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, cursor: 'pointer' }} onClick={() => setActiveTab(2)}>
             Admin Dashboard
