@@ -15,13 +15,13 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // Use this variable for the Firebase configuration provided in the canvas environment
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  apiKey: "AIzaSyBHtoWu3yJddv8KaZiNjMNTKHDM4Sa8ov8",
-  authDomain: "quiz-app-c80b0.firebaseapp.com",
-  projectId: "quiz-app-c80b0",
-  storageBucket: "quiz-app-c80b0.firebasestorage.app",
-  messagingSenderId: "195417701399",
-  appId: "1:195417701399:web:89e2af2003a82854067052",
-  measurementId: "G-P2DTQF4S37"
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: "",
+  measurementId: ""
 };
 
 // Initialize Firebase with the provided configuration
@@ -635,7 +635,7 @@ const QuizList = ({ onNavigate }) => {
 
 const oneCompilerConfig = {
   apiBaseUrl: 'https://onecompiler-api.p.rapidapi.com/api/v1/run',
-  apiKey: '502c01ca60mshe928aa8abeb48d9p1de4a5jsn9aa8a8a1893a', // Replace with your actual RapidAPI key
+  apiKey: '', // Replace with your actual RapidAPI key
   apiHost: 'onecompiler-api.p.rapidapi.com',
 };
 
