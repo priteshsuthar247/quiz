@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, where, getDocs, updateDoc } from 'firebase/firestore';
-import { createTheme, ThemeProvider, CssBaseline, Box, Container, TextField, Button, Typography, Paper, Grid, MenuItem, Alert, CircularProgress, Tabs, Tab, List, ListItem, ListItemText, IconButton, Card, CardContent, Divider, Chip, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, AppBar, Toolbar } from '@mui/material';
+import { createTheme, ThemeProvider, CssBaseline, Box, Container, TextField, Button, Typography, Paper, Grid, MenuItem, Alert, CircularProgress, Tabs, Tab, List, ListItem, ListItemText, IconButton, Card, CardContent, Divider, Chip, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, AppBar, Toolbar, TableContainer, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -342,17 +342,12 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
   const [selectedQuizId, setSelectedQuizId] = useState('');
   const [existingQuizzes, setExistingQuizzes] = useState([]);
   const [questions, setQuestions] = useState([]);
-  const [questionType, setQuestionType] = useState(round === 1 ? 'mcq' : 'coding');
   const [mcqQuestion, setMcqQuestion] = useState('');
   const [mcqOptions, setMcqOptions] = useState(['', '', '', '']);
   const [mcqCorrectAnswer, setMcqCorrectAnswer] = useState('');
-  const [codingQuestion, setCodingQuestion] = useState('');
-  const [codingLanguage, setCodingLanguage] = useState('');
-  const [codingTestCases, setCodingTestCases] = useState([{ input: '', output: '' }]);
   const [semester, setSemester] = useState('');
   const [quizDuration, setQuizDuration] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isNewQuiz, setIsNewQuiz] = useState(true);
 
   useEffect(() => {
     const fetchQuizzes = async () => {
@@ -373,7 +368,6 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
   const handleQuizSelect = (quizId) => {
     setSelectedQuizId(quizId);
     if (quizId) {
-      setIsNewQuiz(false);
       const quizToEdit = existingQuizzes.find(q => q.id === quizId);
       if (quizToEdit) {
         setQuestions(quizToEdit.questions || []);
@@ -381,16 +375,9 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
         setQuizDuration(quizToEdit.duration || '');
       }
     } else {
-      setIsNewQuiz(true);
       setQuestions([]);
       setSemester('');
       setQuizDuration('');
-    }
-  };
-  
-  const handleAddMcqOption = () => {
-    if (mcqOptions.length < 5) {
-      setMcqOptions([...mcqOptions, '']);
     }
   };
 
@@ -400,45 +387,19 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
     setMcqOptions(newOptions);
   };
 
-  const handleAddTestCase = () => {
-    setCodingTestCases([...codingTestCases, { input: '', output: '' }]);
-  };
-
-  const handleTestCaseChange = (index, field, value) => {
-    const newTestCases = [...codingTestCases];
-    newTestCases[index][field] = value;
-    setCodingTestCases(newTestCases);
-  };
-
   const handleAddQuestion = () => {
-    if (round === 1) {
-      if (mcqQuestion && mcqCorrectAnswer && mcqOptions.every(opt => opt !== '')) {
-        setQuestions([...questions, {
-          type: 'mcq',
-          question: mcqQuestion,
-          options: mcqOptions,
-          correctAnswer: mcqCorrectAnswer,
-        }]);
-        setMcqQuestion('');
-        setMcqOptions(['', '', '', '']);
-        setMcqCorrectAnswer('');
-      } else {
-        alert('Please fill out all fields for the question.');
-      }
-    } else if (round === 2) {
-      if (codingQuestion && codingLanguage && codingTestCases.every(tc => tc.input !== '' && tc.output !== '')) {
-        setQuestions([...questions, {
-          type: 'coding',
-          question: codingQuestion,
-          language: codingLanguage,
-          testCases: codingTestCases,
-        }]);
-        setCodingQuestion('');
-        setCodingLanguage('');
-        setCodingTestCases([{ input: '', output: '' }]);
-      } else {
-        alert('Please fill out all fields for the question.');
-      }
+    if (mcqQuestion && mcqCorrectAnswer && mcqOptions.every(opt => opt !== '')) {
+      setQuestions([...questions, {
+        type: 'mcq',
+        question: mcqQuestion,
+        options: mcqOptions,
+        correctAnswer: mcqCorrectAnswer,
+      }]);
+      setMcqQuestion('');
+      setMcqOptions(['', '', '', '']);
+      setMcqCorrectAnswer('');
+    } else {
+      alert('Please fill out all fields for the question.');
     }
   };
 
@@ -519,9 +480,7 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
           required
         />
 
-        {/* Conditional rendering for Round 1 (MCQ) and Round 2 (Coding) */}
-        {round === 1 && (
-          <Box>
+        <Box>
             <Typography variant="h6" gutterBottom>Add Multiple Choice Question</Typography>
             <TextField
               fullWidth
@@ -553,59 +512,6 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
               sx={{ mt: 2 }}
             />
           </Box>
-        )}
-
-        {round === 2 && (
-          <Box>
-            <Typography variant="h6" gutterBottom>Add Coding Question</Typography>
-            <TextField
-              fullWidth
-              select
-              label="Select Language"
-              value={codingLanguage}
-              onChange={(e) => setCodingLanguage(e.target.value)}
-              sx={{ mb: 2 }}
-            >
-              <MenuItem value="C">C</MenuItem>
-              <MenuItem value="C++">C++</MenuItem>
-              <MenuItem value="Java">Java</MenuItem>
-            </TextField>
-            <TextField
-              fullWidth
-              label="Problem Statement (Code with missing lines)"
-              value={codingQuestion}
-              onChange={(e) => setCodingQuestion(e.target.value)}
-              multiline
-              rows={4}
-              sx={{ mb: 2 }}
-            />
-            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Test Cases</Typography>
-            <Grid container spacing={2}>
-              {codingTestCases.map((testCase, index) => (
-                <Grid item xs={12} key={index} sx={{ border: '1px solid #ccc', borderRadius: '8px', p: 2, mb: 2 }}>
-                  <TextField
-                    fullWidth
-                    label={`Input ${index + 1}`}
-                    value={testCase.input}
-                    onChange={(e) => handleTestCaseChange(index, 'input', e.target.value)}
-                    multiline
-                    rows={2}
-                    sx={{ mb: 1 }}
-                  />
-                  <TextField
-                    fullWidth
-                    label={`Expected Output ${index + 1}`}
-                    value={testCase.output}
-                    onChange={(e) => handleTestCaseChange(index, 'output', e.target.value)}
-                    multiline
-                    rows={2}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-            <Button variant="outlined" fullWidth onClick={handleAddTestCase}>Add Another Test Case</Button>
-          </Box>
-        )}
         <Button variant="contained" color="primary" onClick={handleAddQuestion} sx={{ mt: 2 }}>
           Add Question to Quiz
         </Button>
@@ -622,13 +528,7 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
             }>
               <ListItemText
                 primary={`Question ${index + 1}: ${q.question}`}
-                secondary={
-                  q.type === 'mcq' ? (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                      Correct Answer: {q.correctAnswer}
-                    </Typography>
-                  ) : `Language: ${q.language || 'N/A'}`
-                }
+                secondary={ `Correct Answer: ${q.correctAnswer}`}
               />
             </ListItem>
           ))}
@@ -649,7 +549,7 @@ const CreateQuiz = ({ onQuizCreated, round }) => {
   );
 };
 
-const QuizList = ({ onNavigate }) => {
+const QuizList = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -660,7 +560,7 @@ const QuizList = ({ onNavigate }) => {
       querySnapshot.forEach((doc) => {
         quizList.push({ id: doc.id, ...doc.data() });
       });
-      setQuizzes(quizList.sort((a,b) => b.createdAt?.seconds - a.createdAt?.seconds));
+      setQuizzes(quizList.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
       setLoading(false);
     });
     return () => unsubscribe();
@@ -695,20 +595,7 @@ const QuizList = ({ onNavigate }) => {
   );
 };
 
-const oneCompilerConfig = {
-  apiBaseUrl: 'https://onecompiler-api.p.rapidapi.com/api/v1/run',
-  apiKey: '502c01ca60mshe928aa8abeb48d9p1de4a5jsn9aa8a8a1893a', // Replace with your actual RapidAPI key
-  apiHost: 'onecompiler-api.p.rapidapi.com',
-};
-
-// Map programming language names to OneCompiler language strings
-const languageMap = {
-  'C': 'c',
-  'C++': 'cpp',
-  'Java': 'java',
-};
-
-const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
+const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) => {
   const [quiz, setQuiz] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -718,13 +605,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef(null);
-  const [userCode, setUserCode] = useState('');
-  const [codeOutput, setCodeOutput] = useState('');
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [compilationStatus, setCompilationStatus] = useState('');
-  const [showCodeResult, setShowCodeResult] = useState(false);
-
-  // Function to shuffle an array
+  
   const shuffleArray = (array) => {
     let newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
@@ -749,18 +630,14 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
           const quizDoc = querySnapshot.docs[0];
           const quizData = { id: quizDoc.id, ...quizDoc.data() };
           
-          // Randomly select questions based on round
           const numQuestions = round === 1 ? 10 : 3;
           const shuffledQuestions = shuffleArray(quizData.questions);
           const selectedQuestions = shuffledQuestions.slice(0, numQuestions);
           
-          const newQuizData = {
-            ...quizData,
-            questions: selectedQuestions
-          };
+          const newQuizData = { ...quizData, questions: selectedQuestions };
           
           setQuiz(newQuizData);
-          setTimeLeft(newQuizData.duration * 60); // Set time in seconds
+          setTimeLeft(newQuizData.duration * 60);
         } else {
           setError(`It looks like a quiz for your semester hasn't been created yet. Please check back later!`);
         }
@@ -775,113 +652,6 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
     fetchQuiz();
   }, [round, userSemester]);
 
-  useEffect(() => {
-    if (quiz && !quizFinished) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prevTime => {
-          if (prevTime <= 1) {
-            clearInterval(timerRef.current);
-            calculateScore();
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [quiz, quizFinished]);
-
-  const handleAnswerChange = (event) => {
-    const newAnswers = { ...answers, [currentQuestionIndex]: event.target.value };
-    setAnswers(newAnswers);
-  };
-  
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < quiz.questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setShowCodeResult(false);
-      setCodeOutput('');
-      setCompilationStatus('');
-    }
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-      setShowCodeResult(false);
-      setCodeOutput('');
-      setCompilationStatus('');
-    }
-  };
-
-  const handleRunCode = async () => {
-    setIsCompiling(true);
-    setCodeOutput('');
-    setCompilationStatus('');
-    setShowCodeResult(true);
-
-    const question = quiz.questions[currentQuestionIndex];
-    if (!question || question.type !== 'coding' || !question.language) {
-      setCompilationStatus('Error: Invalid question type or language.');
-      setIsCompiling(false);
-      return;
-    }
-
-    const language = languageMap[question.language];
-    const testCase = question.testCases[0];
-    const sourceCode = userCode;
-
-    if (!language || !sourceCode) {
-      setCompilationStatus('Error: Missing language or code.');
-      setIsCompiling(false);
-      return;
-    }
-
-    const payload = {
-      language: language,
-      stdin: testCase.input,
-      code: sourceCode,
-    };
-
-    try {
-      const response = await fetch(oneCompilerConfig.apiBaseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-RapidAPI-Host': oneCompilerConfig.apiHost,
-          'X-RapidAPI-Key': oneCompilerConfig.apiKey,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      
-      setCodeOutput(data.output || data.error);
-
-      if (data.output === testCase.output) {
-        setCompilationStatus('Accepted');
-        const newAnswers = { ...answers, [currentQuestionIndex]: { passed: true } };
-        setAnswers(newAnswers);
-      } else {
-        setCompilationStatus('Wrong Answer');
-        const newAnswers = { ...answers, [currentQuestionIndex]: { passed: false } };
-        setAnswers(newAnswers);
-      }
-
-    } catch (e) {
-      console.error("Error during code execution:", e);
-      setCompilationStatus('Error: Could not connect to the compiler.');
-    } finally {
-      setIsCompiling(false);
-    }
-  };
-
-
   const calculateScore = async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -892,31 +662,74 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
         if (answers[index] === q.correctAnswer) {
           newScore += 1;
         }
-      } else if (q.type === 'coding') {
-        if (answers[index]?.passed) {
-          newScore += 1;
-        }
       }
     });
     setScore(newScore);
 
     if (round === 1 && auth.currentUser) {
       try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        let finalEnrollmentNumber = enrollmentNumber;
+        let finalSemester = userSemester;
+
+        if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            finalEnrollmentNumber = userData.enrollmentNumber || enrollmentNumber;
+            finalSemester = userData.semester || userSemester;
+        }
+        
         await addDoc(collection(db, "quizResults"), {
-          userId: auth.currentUser.uid,
-          quizId: quiz.id,
-          quizName: quiz.quizName,
-          score: newScore,
-          totalQuestions: quiz.questions.length,
-          round: round,
-          completedAt: serverTimestamp(),
+            userId: auth.currentUser.uid,
+            enrollmentNumber: finalEnrollmentNumber,
+            semester: finalSemester,
+            quizId: quiz.id,
+            quizName: quiz.quizName,
+            score: newScore,
+            totalQuestions: quiz.questions.length,
+            round: round,
+            completedAt: serverTimestamp(),
         });
+
       } catch (e) {
         console.error("Error saving quiz result: ", e);
       }
     }
 
     setQuizFinished(true);
+  };
+  
+  useEffect(() => {
+    if (quiz && !quizFinished && timeLeft > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prevTime => prevTime - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && !quizFinished && quiz) {
+        calculateScore();
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [quiz, quizFinished, timeLeft]);
+
+  const handleAnswerChange = (event) => {
+    const newAnswers = { ...answers, [currentQuestionIndex]: event.target.value };
+    setAnswers(newAnswers);
+  };
+  
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < quiz.questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
   };
 
   const formatTime = (time) => {
@@ -926,11 +739,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><CircularProgress /></Box>;
   }
 
   if (error) {
@@ -950,39 +759,6 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
         <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h4" gutterBottom>Quiz Finished!</Typography>
           <Typography variant="h5" sx={{ mb: 2 }}>Your Score: {score} / {quiz.questions.length}</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="h6" gutterBottom>Review Your Answers</Typography>
-          <List>
-            {quiz.questions.map((q, index) => {
-              const userAnswer = answers[index] || 'No answer provided';
-              const isCorrect = q.type === 'mcq' && userAnswer === q.correctAnswer;
-              return (
-                <ListItem key={index} alignItems="flex-start" sx={{ borderBottom: '1px solid #eee', mb: 2 }}>
-                  <ListItemText
-                    primary={`Question ${index + 1}: ${q.question}`}
-                    secondary={
-                      <Box component="span">
-                        <Typography
-                          component="span"
-                          variant="body2"
-                          color="text.primary"
-                        >
-                          Your Answer: {q.type === 'mcq' ? userAnswer : (answers[index]?.passed ? 'Correct' : 'Incorrect')}
-                          <IconButton size="small" sx={{ ml: 1 }}>
-                            {q.type === 'mcq' ? (isCorrect ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />) : (answers[index]?.passed ? <CheckCircleIcon color="success" /> : <CancelIcon color="error" />)}
-                          </IconButton>
-                        </Typography>
-                        <br />
-                        <Typography component="span" variant="body2" sx={{ color: 'text.secondary' }}>
-                          Correct Answer: {q.type === 'mcq' ? q.correctAnswer : q.testCases[0].output}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              );
-            })}
-          </List>
           <Button variant="contained" onClick={onQuizCompleted}>Go Back to Home</Button>
         </Paper>
       </Container>
@@ -1005,120 +781,32 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
         <Typography variant="subtitle1" color="text.secondary">
           Question {currentQuestionIndex + 1} of {quiz.questions.length}
         </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, my: 2 }}>
-          {quiz.questions.map((_, index) => (
-            <Chip
-              key={index}
-              label={index + 1}
-              color={answers[index] ? 'primary' : 'default'}
-              variant={currentQuestionIndex === index ? 'filled' : 'outlined'}
-              onClick={() => setCurrentQuestionIndex(index)}
-              sx={{ cursor: 'pointer' }}
-            />
-          ))}
-        </Box>
         <Divider sx={{ my: 2 }} />
         <Box sx={{ minHeight: '300px' }}>
-          {currentQuestion.type === 'mcq' && (
-            <FormControl component="fieldset" sx={{ width: '100%' }}>
-              <FormLabel component="legend" sx={{ mb: 2 }}>
-                <Typography variant="body1">{currentQuestion.question}</Typography>
-              </FormLabel>
-              <RadioGroup
-                value={answers[currentQuestionIndex] || ''}
-                onChange={handleAnswerChange}
-              >
-                {currentQuestion.options.map((option, index) => (
-                  <FormControlLabel
-                    key={index}
-                    value={option}
-                    control={<Radio />}
-                    label={option}
-                  />
-                ))}
-              </RadioGroup>
-            </FormControl>
-          )}
-          {currentQuestion.type === 'coding' && (
-            <Box>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                {currentQuestion.question}
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={10}
-                label={`Your Code (${currentQuestion.language})`}
-                value={userCode}
-                onChange={(e) => setUserCode(e.target.value)}
-              />
-              <Button
-                variant="contained"
-                onClick={handleRunCode}
-                disabled={isCompiling}
-                sx={{ mt: 2 }}
-              >
-                {isCompiling ? <CircularProgress size={24} color="inherit" /> : 'Run Code'}
-              </Button>
-              {showCodeResult && (
-                <Grid container spacing={2} sx={{ mt: 2 }}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Expected Output</Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      value={currentQuestion.testCases[0].output}
-                      InputProps={{
-                        readOnly: true,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Your Output</Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      value={isCompiling ? 'Compiling...' : codeOutput}
-                      InputProps={{
-                        readOnly: true,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Alert severity={compilationStatus === 'Accepted' ? 'success' : 'error'}>
-                      {compilationStatus}
-                    </Alert>
-                  </Grid>
-                </Grid>
-              )}
-            </Box>
-          )}
+          <FormControl component="fieldset" sx={{ width: '100%' }}>
+            <FormLabel component="legend" sx={{ mb: 2 }}>
+              <Typography variant="body1">{currentQuestion.question}</Typography>
+            </FormLabel>
+            <RadioGroup
+              value={answers[currentQuestionIndex] || ''}
+              onChange={handleAnswerChange}
+            >
+              {currentQuestion.options.map((option, index) => (
+                <FormControlLabel key={index} value={option} control={<Radio />} label={option} />
+              ))}
+            </RadioGroup>
+          </FormControl>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            variant="outlined"
-            onClick={handlePreviousQuestion}
-            disabled={currentQuestionIndex === 0}
-            startIcon={<ArrowBackIcon />}
-          >
+          <Button variant="outlined" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0} startIcon={<ArrowBackIcon />}>
             Previous
           </Button>
           {currentQuestionIndex < quiz.questions.length - 1 ? (
-            <Button
-              variant="contained"
-              onClick={handleNextQuestion}
-              endIcon={<ArrowForwardIcon />}
-            >
+            <Button variant="contained" onClick={handleNextQuestion} endIcon={<ArrowForwardIcon />}>
               Next
             </Button>
           ) : (
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={calculateScore}
-            >
+            <Button variant="contained" color="secondary" onClick={calculateScore}>
               Submit Quiz
             </Button>
           )}
@@ -1128,11 +816,57 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
   );
 };
 
-// New AdminDashboard component with tabs
-const AdminDashboard = ({ onLogout, onNavigate, activeTab, setActiveTab }) => {
-  const [loading, setLoading] = useState(false);
+const QuizResultsView = () => {
+    const [results, setResults] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-  // Render the appropriate component based on the activeTab state
+    useEffect(() => {
+        const q = query(collection(db, "quizResults"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const resultsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            resultsData.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+            setResults(resultsData);
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const formatTimestamp = (timestamp) => {
+        if (!timestamp?.seconds) return 'N/A';
+        return new Date(timestamp.seconds * 1000).toLocaleString('en-IN');
+    };
+
+    if (loading) {
+        return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
+    }
+
+    return (
+        <TableContainer component={Paper}>
+            <Table sx={{ minWidth: 650 }} aria-label="quiz results table">
+                <TableHead>
+                    <TableRow>
+                        <TableCell>Enrollment Number</TableCell>
+                        <TableCell align="right">Semester</TableCell>
+                        <TableCell align="right">Score</TableCell>
+                        <TableCell align="right">Timestamp</TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {results.map((row) => (
+                        <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                            <TableCell component="th" scope="row">{row.enrollmentNumber}</TableCell>
+                            <TableCell align="right">{row.semester}</TableCell>
+                            <TableCell align="right">{`${row.score} / ${row.totalQuestions}`}</TableCell>
+                            <TableCell align="right">{formatTimestamp(row.completedAt)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+};
+
+const AdminDashboard = ({ onLogout, activeTab, setActiveTab }) => {
   const renderContent = () => {
     switch (activeTab) {
       case 0:
@@ -1140,7 +874,9 @@ const AdminDashboard = ({ onLogout, onNavigate, activeTab, setActiveTab }) => {
       case 1:
         return <CreateQuiz onQuizCreated={() => setActiveTab(2)} round={2} />;
       case 2:
-        return <QuizList onNavigate={onNavigate} />;
+        return <QuizList />;
+      case 3:
+        return <QuizResultsView />;
       default:
         return <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="h6">Welcome to the Admin Dashboard!</Typography></Box>;
     }
@@ -1157,6 +893,7 @@ const AdminDashboard = ({ onLogout, onNavigate, activeTab, setActiveTab }) => {
             <Tab label="Create Round 1 Quiz" />
             <Tab label="Create Round 2 Quiz" />
             <Tab label="View All Quizzes" />
+            <Tab label="View Results" />
           </Tabs>
           <Button color="inherit" onClick={onLogout}>Logout</Button>
         </Toolbar>
@@ -1174,6 +911,7 @@ export default function App() {
   const [userId, setUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userSemester, setUserSemester] = useState(null);
+  const [enrollmentNumber, setEnrollmentNumber] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState(0);
 
   useEffect(() => {
@@ -1186,16 +924,16 @@ export default function App() {
           setUserId(user.uid);
           setUserRole(userData.role);
           setUserSemester(userData.semester);
+          setEnrollmentNumber(userData.enrollmentNumber);
           setCurrentView(VIEWS.HOME);
         } else {
-          // Inconsistent state: user exists in Auth but not in Firestore DB.
-          // Forcing sign out to prevent app from getting stuck.
           await signOut(auth);
         }
       } else {
         setUserId(null);
         setUserRole(null);
         setUserSemester(null);
+        setEnrollmentNumber(null);
         setCurrentView(VIEWS.AUTH);
       }
       setIsAuthReady(true);
@@ -1206,14 +944,12 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      // The onAuthStateChanged listener will handle setting the view to AUTH.
     } catch (e) {
       console.error(e);
     }
   };
 
   const renderView = () => {
-    // Determine the view name from the currentView state, handling both strings and objects
     const viewName = typeof currentView === 'string' ? currentView : currentView.view;
 
     if (userRole === 'admin' && viewName !== VIEWS.AUTH) {
@@ -1228,16 +964,15 @@ export default function App() {
 
     switch (viewName) {
       case VIEWS.AUTH:
-        return <LoginRegister onLogin={() => { /* onAuthStateChanged will handle navigation */ }} />;
+        return <LoginRegister onLogin={() => {}} />;
       case VIEWS.HOME:
         return <UserHome userId={userId} onLogout={handleLogout} onNavigate={setCurrentView} />;
       case VIEWS.USER_QUIZ:
         if (userRole === 'user' && userSemester) {
-          return <UserQuiz onQuizCompleted={() => setCurrentView(VIEWS.HOME)} round={currentView.round} userSemester={userSemester} />;
+          return <UserQuiz onQuizCompleted={() => setCurrentView(VIEWS.HOME)} round={currentView.round} userSemester={userSemester} enrollmentNumber={enrollmentNumber}/>;
         }
         return <UserHome userId={userId} onLogout={handleLogout} onNavigate={setCurrentView} />;
       default:
-        // Render login screen by default if view is unknown
         return <LoginRegister onLogin={() => setCurrentView(VIEWS.HOME)} />;
     }
   };
