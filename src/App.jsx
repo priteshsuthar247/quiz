@@ -229,6 +229,29 @@ const LoginRegister = ({ onLogin }) => {
 };
 
 const UserHome = ({ userId, onLogout, onNavigate }) => {
+  const [hasAttemptedQuiz, setHasAttemptedQuiz] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    const checkQuizAttempt = async () => {
+      const q = query(
+        collection(db, "quizResults"),
+        where("userId", "==", userId),
+        where("round", "==", 1)
+      );
+      const querySnapshot = await getDocs(q);
+      setHasAttemptedQuiz(!querySnapshot.empty);
+      setLoading(false);
+    };
+
+    checkQuizAttempt();
+  }, [userId]);
+
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -241,13 +264,19 @@ const UserHome = ({ userId, onLogout, onNavigate }) => {
           </Typography>
           <Grid container spacing={2} sx={{ mt: 4, flexDirection: 'column' }}>
             <Grid item xs={12}>
-              <Button 
-                fullWidth 
-                variant="contained"
-                onClick={() => onNavigate({ view: VIEWS.USER_QUIZ, round: 1 })}
-              >
-                Round 1 Quiz
-              </Button>
+              {loading ? (
+                <CircularProgress />
+              ) : hasAttemptedQuiz ? (
+                <Alert severity="info">You have already attempted the Round 1 quiz.</Alert>
+              ) : (
+                <Button 
+                  fullWidth 
+                  variant="contained"
+                  onClick={() => onNavigate({ view: VIEWS.USER_QUIZ, round: 1 })}
+                >
+                  Round 1 Quiz
+                </Button>
+              )}
             </Grid>
             <Grid item xs={12}>
               <Button
@@ -534,6 +563,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef(null);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
   
   const shuffleArray = (array) => {
     let newArray = [...array];
@@ -545,9 +575,42 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
   };
 
   useEffect(() => {
-    const fetchQuiz = async () => {
+    const handleBlur = () => {
+      setTabSwitchCount(prevCount => prevCount + 1);
+    };
+    
+    window.addEventListener('blur', handleBlur);
+    
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkAttemptAndFetchQuiz = async () => {
       setLoading(true);
       setError('');
+
+      if (!auth.currentUser) {
+          setError("You must be logged in to attempt a quiz.");
+          setLoading(false);
+          return;
+      }
+
+      // First, check if the user has already attempted this round
+      const attemptQuery = query(
+          collection(db, 'quizResults'),
+          where('userId', '==', auth.currentUser.uid),
+          where('round', '==', round)
+      );
+      const attemptSnapshot = await getDocs(attemptQuery);
+
+      if (!attemptSnapshot.empty) {
+          setError("You have already attempted this quiz.");
+          setLoading(false);
+          return;
+      }
+
       try {
         const q = query(
           collection(db, 'quizzes'),
@@ -578,7 +641,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
       }
     };
 
-    fetchQuiz();
+    checkAttemptAndFetchQuiz();
   }, [round, userSemester]);
 
   const calculateScore = async () => {
@@ -618,6 +681,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
             score: newScore,
             totalQuestions: quiz.questions.length,
             round: round,
+            tabSwitches: tabSwitchCount,
             completedAt: serverTimestamp(),
         });
 
@@ -777,6 +841,7 @@ const QuizResultsView = () => {
                         <TableCell>Enrollment Number</TableCell>
                         <TableCell align="right">Semester</TableCell>
                         <TableCell align="right">Score</TableCell>
+                        <TableCell align="right">Tab Switches</TableCell>
                         <TableCell align="right">Timestamp</TableCell>
                     </TableRow>
                 </TableHead>
@@ -786,6 +851,7 @@ const QuizResultsView = () => {
                             <TableCell component="th" scope="row">{row.enrollmentNumber}</TableCell>
                             <TableCell align="right">{row.semester}</TableCell>
                             <TableCell align="right">{`${row.score} / ${row.totalQuestions}`}</TableCell>
+                            <TableCell align="right">{row.tabSwitches || 0}</TableCell>
                             <TableCell align="right">{formatTimestamp(row.completedAt)}</TableCell>
                         </TableRow>
                     ))}
