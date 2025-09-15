@@ -645,6 +645,9 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
   }, [round, userSemester]);
 
   const calculateScore = async () => {
+    if (quizFinished) return; // Guard to prevent multiple submissions
+    setQuizFinished(true); // Set lock immediately
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -689,8 +692,6 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
         console.error("Error saving quiz result: ", e);
       }
     }
-
-    setQuizFinished(true);
   };
   
   useEffect(() => {
@@ -1034,5 +1035,4 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
 
