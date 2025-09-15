@@ -812,6 +812,18 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester, enrollmentNumber }) =>
 const QuizResultsView = () => {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [xlsxScriptLoaded, setXlsxScriptLoaded] = useState(false);
+
+    useEffect(() => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        script.onload = () => setXlsxScriptLoaded(true);
+        document.head.appendChild(script);
+
+        return () => {
+            document.head.removeChild(script);
+        };
+    }, []);
 
     useEffect(() => {
         const q = query(collection(db, "quizResults"));
@@ -829,35 +841,67 @@ const QuizResultsView = () => {
         return new Date(timestamp.seconds * 1000).toLocaleString('en-IN');
     };
 
+    const handleExport = () => {
+        if (!xlsxScriptLoaded) {
+            alert("Export library is still loading. Please try again in a moment.");
+            return;
+        }
+
+        const dataToExport = results.map(row => ({
+            'Enrollment Number': row.enrollmentNumber,
+            'Semester': row.semester,
+            'Score': `${row.score} / ${row.totalQuestions}`,
+            'Tab Switches': row.tabSwitches || 0,
+            'Timestamp': formatTimestamp(row.completedAt)
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Quiz Results");
+
+        XLSX.writeFile(wb, "QuizResults.xlsx");
+    };
+
     if (loading) {
         return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
     }
 
     return (
-        <TableContainer component={Paper}>
-            <Table sx={{ minWidth: 650 }} aria-label="quiz results table">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>Enrollment Number</TableCell>
-                        <TableCell align="right">Semester</TableCell>
-                        <TableCell align="right">Score</TableCell>
-                        <TableCell align="right">Tab Switches</TableCell>
-                        <TableCell align="right">Timestamp</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {results.map((row) => (
-                        <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                            <TableCell component="th" scope="row">{row.enrollmentNumber}</TableCell>
-                            <TableCell align="right">{row.semester}</TableCell>
-                            <TableCell align="right">{`${row.score} / ${row.totalQuestions}`}</TableCell>
-                            <TableCell align="right">{row.tabSwitches || 0}</TableCell>
-                            <TableCell align="right">{formatTimestamp(row.completedAt)}</TableCell>
+        <Box>
+             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button 
+                    variant="contained" 
+                    onClick={handleExport}
+                    disabled={!xlsxScriptLoaded || results.length === 0}
+                >
+                    Export to Excel
+                </Button>
+            </Box>
+            <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="quiz results table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>Enrollment Number</TableCell>
+                            <TableCell align="right">Semester</TableCell>
+                            <TableCell align="right">Score</TableCell>
+                            <TableCell align="right">Tab Switches</TableCell>
+                            <TableCell align="right">Timestamp</TableCell>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                        {results.map((row) => (
+                            <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                <TableCell component="th" scope="row">{row.enrollmentNumber}</TableCell>
+                                <TableCell align="right">{row.semester}</TableCell>
+                                <TableCell align="right">{`${row.score} / ${row.totalQuestions}`}</TableCell>
+                                <TableCell align="right">{row.tabSwitches || 0}</TableCell>
+                                <TableCell align="right">{formatTimestamp(row.completedAt)}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Box>
     );
 };
 
@@ -990,4 +1034,5 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
 
