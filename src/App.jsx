@@ -229,46 +229,6 @@ const LoginRegister = ({ onLogin }) => {
 };
 
 const UserHome = ({ userId, onLogout, onNavigate }) => {
-  const [quizHistory, setQuizHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-
-  useEffect(() => {
-    if (!userId) {
-      setQuizHistory([]);
-      setLoadingHistory(false);
-      return;
-    }
-
-    setLoadingHistory(true);
-    // Modified query to remove orderBy to avoid needing a composite index
-    const q = query(
-      collection(db, "quizResults"),
-      where("userId", "==", userId),
-      where("round", "==", 1)
-    );
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const history = [];
-      querySnapshot.forEach((doc) => {
-        history.push({ id: doc.id, ...doc.data() });
-      });
-      // Sort the results by date on the client-side
-      history.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
-      setQuizHistory(history);
-      setLoadingHistory(false);
-    }, (error) => {
-      console.error("Error fetching quiz history:", error);
-      setLoadingHistory(false);
-    });
-
-    return () => unsubscribe();
-  }, [userId]);
-
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp?.seconds) return 'Date not available';
-    return new Date(timestamp.seconds * 1000).toLocaleString('en-IN');
-  };
-  
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -288,37 +248,6 @@ const UserHome = ({ userId, onLogout, onNavigate }) => {
               >
                 Round 1 Quiz
               </Button>
-            </Grid>
-            {/* History Section */}
-            <Grid item xs={12} sx={{ mt: 2 }}>
-              <Divider />
-              <Box sx={{ mt: 2, textAlign: 'left' }}>
-                <Typography variant="h6" gutterBottom>
-                  Round 1 Quiz History
-                </Typography>
-                {loadingHistory ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                    <CircularProgress />
-                  </Box>
-                ) : quizHistory.length > 0 ? (
-                  <List sx={{ p: 0 }}>
-                    {quizHistory.map((result) => (
-                      <Card key={result.id} variant="outlined" sx={{ mb: 1 }}>
-                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                          <Typography variant="body1">
-                            <strong>Score:</strong> {result.score} / {result.totalQuestions}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Attempted on: {formatTimestamp(result.completedAt)}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </List>
-                ) : (
-                  <Typography>You have not attempted the Round 1 quiz yet.</Typography>
-                )}
-              </Box>
             </Grid>
             <Grid item xs={12}>
               <Button
