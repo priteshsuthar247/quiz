@@ -228,7 +228,47 @@ const LoginRegister = ({ onLogin }) => {
   );
 };
 
-const UserHome = ({ onLogout, onNavigate }) => {
+const UserHome = ({ userId, onLogout, onNavigate }) => {
+  const [quizHistory, setQuizHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setQuizHistory([]);
+      setLoadingHistory(false);
+      return;
+    }
+
+    setLoadingHistory(true);
+    // Modified query to remove orderBy to avoid needing a composite index
+    const q = query(
+      collection(db, "quizResults"),
+      where("userId", "==", userId),
+      where("round", "==", 1)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const history = [];
+      querySnapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() });
+      });
+      // Sort the results by date on the client-side
+      history.sort((a, b) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+      setQuizHistory(history);
+      setLoadingHistory(false);
+    }, (error) => {
+      console.error("Error fetching quiz history:", error);
+      setLoadingHistory(false);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp?.seconds) return 'Date not available';
+    return new Date(timestamp.seconds * 1000).toLocaleString('en-IN');
+  };
+  
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -248,6 +288,37 @@ const UserHome = ({ onLogout, onNavigate }) => {
               >
                 Round 1 Quiz
               </Button>
+            </Grid>
+            {/* History Section */}
+            <Grid item xs={12} sx={{ mt: 2 }}>
+              <Divider />
+              <Box sx={{ mt: 2, textAlign: 'left' }}>
+                <Typography variant="h6" gutterBottom>
+                  Round 1 Quiz History
+                </Typography>
+                {loadingHistory ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress />
+                  </Box>
+                ) : quizHistory.length > 0 ? (
+                  <List sx={{ p: 0 }}>
+                    {quizHistory.map((result) => (
+                      <Card key={result.id} variant="outlined" sx={{ mb: 1 }}>
+                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                          <Typography variant="body1">
+                            <strong>Score:</strong> {result.score} / {result.totalQuestions}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Attempted on: {formatTimestamp(result.completedAt)}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </List>
+                ) : (
+                  <Typography>You have not attempted the Round 1 quiz yet.</Typography>
+                )}
+              </Box>
             </Grid>
             <Grid item xs={12}>
               <Button
@@ -811,7 +882,7 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
   };
 
 
-  const calculateScore = () => {
+  const calculateScore = async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -828,6 +899,23 @@ const UserQuiz = ({ onQuizCompleted, round, userSemester }) => {
       }
     });
     setScore(newScore);
+
+    if (round === 1 && auth.currentUser) {
+      try {
+        await addDoc(collection(db, "quizResults"), {
+          userId: auth.currentUser.uid,
+          quizId: quiz.id,
+          quizName: quiz.quizName,
+          score: newScore,
+          totalQuestions: quiz.questions.length,
+          round: round,
+          completedAt: serverTimestamp(),
+        });
+      } catch (e) {
+        console.error("Error saving quiz result: ", e);
+      }
+    }
+
     setQuizFinished(true);
   };
 
@@ -1083,41 +1171,34 @@ const AdminDashboard = ({ onLogout, onNavigate, activeTab, setActiveTab }) => {
 export default function App() {
   const [currentView, setCurrentView] = useState(VIEWS.AUTH);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [userId, setUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userSemester, setUserSemester] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState(0);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined') {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        }
-      } catch (error) {
-        console.error("Custom token sign-in failed:", error);
-      } finally {
-        setIsAuthReady(true);
-      }
-    };
-    initializeAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
+          setUserId(user.uid);
           setUserRole(userData.role);
           setUserSemester(userData.semester);
           setCurrentView(VIEWS.HOME);
         } else {
+          // Inconsistent state: user exists in Auth but not in Firestore DB.
+          // Forcing sign out to prevent app from getting stuck.
           await signOut(auth);
-          setCurrentView(VIEWS.AUTH);
         }
       } else {
+        setUserId(null);
         setUserRole(null);
         setUserSemester(null);
         setCurrentView(VIEWS.AUTH);
       }
+      setIsAuthReady(true);
     });
     return () => unsubscribe();
   }, []);
@@ -1125,7 +1206,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setCurrentView(VIEWS.AUTH);
+      // The onAuthStateChanged listener will handle setting the view to AUTH.
     } catch (e) {
       console.error(e);
     }
@@ -1147,16 +1228,17 @@ export default function App() {
 
     switch (viewName) {
       case VIEWS.AUTH:
-        return <LoginRegister onLogin={() => setCurrentView(VIEWS.HOME)} />;
+        return <LoginRegister onLogin={() => { /* onAuthStateChanged will handle navigation */ }} />;
       case VIEWS.HOME:
-        return <UserHome onLogout={handleLogout} onNavigate={setCurrentView} />;
+        return <UserHome userId={userId} onLogout={handleLogout} onNavigate={setCurrentView} />;
       case VIEWS.USER_QUIZ:
         if (userRole === 'user' && userSemester) {
           return <UserQuiz onQuizCompleted={() => setCurrentView(VIEWS.HOME)} round={currentView.round} userSemester={userSemester} />;
         }
-        return <UserHome onLogout={handleLogout} onNavigate={setCurrentView} />;
+        return <UserHome userId={userId} onLogout={handleLogout} onNavigate={setCurrentView} />;
       default:
-        return null;
+        // Render login screen by default if view is unknown
+        return <LoginRegister onLogin={() => setCurrentView(VIEWS.HOME)} />;
     }
   };
 
@@ -1178,3 +1260,4 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
